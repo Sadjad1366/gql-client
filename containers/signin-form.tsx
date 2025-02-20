@@ -2,29 +2,48 @@
 
 import { Button } from "@/components/btn";
 import { Input } from "@/components/input";
+import { signinMutation } from "@/gql/mutations/signin";
 import { classNames } from "@/utils/classname";
+import { setToken } from "@/utils/token";
+import { useMutation } from "@apollo/client";
+import { useRouter } from "next/navigation";
 import React from "react";
 
-interface IFormValue {
-  email: string;
-  password: string;
-}
-
 export const SigninForm: React.FC = () => {
-  const [values, setValues] = React.useState<IFormValue>({
+  const [values, setValues] = React.useState<IAuthInput>({
     email: "",
     password: "",
   });
-  const onChange: (_: keyof IFormValue) => React.ChangeEventHandler<HTMLInputElement> = (field) => {
-      return (event) =>{
-            const value = event.target.value;
-            const newValues: IFormValue = {...values};
-            newValues[field] = value;
-            setValues(newValues);
-      }
+  const {push} = useRouter();
+  const [signin, { loading }] = useMutation<ISigninResDto>(signinMutation);
+
+  const onChange: (
+    _: keyof IAuthInput
+  ) => React.ChangeEventHandler<HTMLInputElement> = (field) => {
+    return (event) => {
+      const value = event.target.value;
+      const newValues: IAuthInput = { ...values };
+      newValues[field] = value;
+      setValues(newValues);
+    };
   }
+  const onSubmit: React.FormEventHandler<HTMLFormElement> = async (e) => {
+    e.preventDefault();
+    try {
+      console.log(values);
+      const response = await signin({ variables: { input: values } });
+     if(!response.data?.signin.token) return;
+     setToken(response.data.signin.token);
+     push("/");
+
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
-    <section
+    <form
+      onSubmit={onSubmit}
       className={classNames(
         "bg-white border border-slate-300 rounded-lg shadow-lg px-5 py-4",
         " w-full max-w-[500px]",
@@ -32,9 +51,11 @@ export const SigninForm: React.FC = () => {
       )}
     >
       <p className="text-lg font-semibold">Signin</p>
-      <Input label="Email" onChange={onChange("email")} />
-      <Input label="Password" onChange = {onChange("password")} />
-      <Button>Signin</Button>
-    </section>
+      <Input label="Email" type="email" onChange={onChange("email")} />
+      <Input label="Password" type="password" onChange={onChange("password")} />
+      <Button type="submit" disabled={loading}>
+        Signin
+      </Button>
+    </form>
   );
 };
